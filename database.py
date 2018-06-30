@@ -33,7 +33,9 @@ def insertToDb(patent):
 def countRecords(year):
     try:
         session = conn.Session()
-        return session.query(func.count(conn.Patent.publicate_number)).filter(conn.Patent.publicate_date.like(year + '%')).scalar()
+        result = session.query(func.count(conn.Patent.publicate_number)).filter(conn.Patent.publicate_date.like(year + '%')).scalar()
+        session.close()
+        return result
     except Exception as e:
         # 待指定error规则
         # print("Exception: " + repr(e))
@@ -63,11 +65,13 @@ def addPageCrawled(payload_publicate):
 def isCrawled(payload_publicate):
     try:
         session = conn.Session()
-        return session.query(func.count('*')).\
+        result = session.query(func.count('*')).\
             filter(conn.Page.strWhere == payload_publicate['strWhere']). \
             filter(conn.Page.pageSize == payload_publicate['pageSize']). \
             filter(conn.Page.pageNow == payload_publicate['pageNow']).\
             scalar()
+        session.close()
+        return result
     except Exception as e:
         # 待指定error规则
         print("Exception: " + repr(e))
