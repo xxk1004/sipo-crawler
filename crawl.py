@@ -278,19 +278,19 @@ if __name__ == '__main__':
                 l2 = range(1, maxPages[i] + 1)
             else:
                 l2 = reversed(range(1, maxPages[i] + 1))
-            for page in l2:
+            uncrawledPageList = database.getUncrawledPageList(r'OPD=' + opd[i], '20', l2)
+            for page in uncrawledPageList:
                 payload_publicate = {'showType': '1', 'strSources': 'pip', 'strWhere': r'OPD=' + opd[i],
                                      'numSortMethod': '4', 'numIp': '0', 'numIpc': '0', 'pageSize': '20',
                                      'pageNow': str(page)}
-                if database.isCrawled(payload_publicate) == 0:
-                    with lock:
-                        fs = open(logFile, "a+")
-                        for v, k in payload_publicate.items():
-                            fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
-                        fs.write('\n')
-                        fs.close()
-                    pool.apply_async(func=crawl, args=(payload_publicate, pids, lock, cnt,))
-                    cnt = cnt + 1
+                with lock:
+                    fs = open(logFile, "a+")
+                    for v, k in payload_publicate.items():
+                        fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
+                    fs.write('\n')
+                    fs.close()
+                pool.apply_async(func=crawl, args=(payload_publicate, pids, lock, cnt,))
+                cnt = cnt + 1
         pool.close()
         fs = open(logFile, "a+")
         fs.write('Pool has been closed.\n')

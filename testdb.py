@@ -12,4 +12,5 @@ payload_publicate = {'showType': '1', 'strSources': 'pip', 'strWhere': r"OPD=BET
                      'numSortMethod': '4', 'numIp': '0', 'numIpc': '0', 'pageSize': '20',
                      'pageNow': '1'}
 # database.addPageCrawled(payload_publicate)
-print(str(database.isCrawled(payload_publicate)))
+# print(str(database.isCrawled(payload_publicate)))
+print(database.getUncrawledPageList("OPD=BETWEEN['2013.04.11', '2013.04.20']", '20', range(1, 30)))

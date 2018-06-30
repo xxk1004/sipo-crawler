@@ -79,3 +79,25 @@ def isCrawled(payload_publicate):
         return "<@Error@>"
     finally:
         pass
+
+def getUncrawledPageList(strWhere, pageSize, pageNowList):
+    crawledPageList = []
+    unCrawledPageList = []
+    try:
+        session = conn.Session()
+        query = session.query(conn.Page.pageNow).\
+            filter(conn.Page.strWhere == strWhere).\
+            filter(conn.Page.pageSize == pageSize)
+        for page in query.all():
+            crawledPageList.append(page[0])
+        print(crawledPageList)
+        for item in pageNowList:
+            if str(item) not in crawledPageList:
+                unCrawledPageList.append(str(item))
+        return unCrawledPageList
+    except Exception as e:
+        # 待指定error规则
+        session.rollback()
+        return "<@Error@>"
+    finally:
+        pass
