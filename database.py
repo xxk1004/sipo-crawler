@@ -59,3 +59,19 @@ def addPageCrawled(payload_publicate):
         return "<@Error@>"
     finally:
         pass
+
+def isCrawled(payload_publicate):
+    try:
+        session = conn.Session()
+        return session.query(func.count('*')).\
+            filter(conn.Page.strWhere == payload_publicate['strWhere']). \
+            filter(conn.Page.pageSize == payload_publicate['pageSize']). \
+            filter(conn.Page.pageNow == payload_publicate['pageNow']).\
+            scalar()
+    except Exception as e:
+        # 待指定error规则
+        print("Exception: " + repr(e))
+        session.rollback()
+        return "<@Error@>"
+    finally:
+        pass

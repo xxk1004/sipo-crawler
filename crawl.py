@@ -106,7 +106,7 @@ def get_response(payload_publicate, proxies, retries):
             return '<@Error@>'
 
 
-def parse(response):
+def parse(response, payload_publicate):
     # print("crawling page ", self.pageNow) response里不可能得到当前页码
     # print("start_parse")
     cp_linrs = response.xpath("//div[@class='main']//div[@class='cp_box']//div[@class='cp_linr']")
@@ -152,6 +152,7 @@ def parse(response):
         # for v, k in item.items():
         #     print('{v}:{k}'.format(v=v, k=k))
         result = database.insertToDb(item)
+        database.addPageCrawled(payload_publicate)
         # if (result == "<@Error@>"):
         #     print("Database exception")
 
@@ -191,7 +192,7 @@ def crawl(payload_publicate, pids, lock, cnt):
         #     fs.close()
         response = get_response(payload_publicate, proxies, 5)
         if response != '<@Error@>':
-            parse(response)
+            parse(response, payload_publicate)
     except:
         with lock:
             fs = open(logFile, "a+")
@@ -281,14 +282,15 @@ if __name__ == '__main__':
                 payload_publicate = {'showType': '1', 'strSources': 'pip', 'strWhere': r'OPD=' + opd[i],
                                      'numSortMethod': '4', 'numIp': '0', 'numIpc': '0', 'pageSize': '20',
                                      'pageNow': str(page)}
-                with lock:
-                    fs = open(logFile, "a+")
-                    for v, k in payload_publicate.items():
-                        fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
-                    fs.write('\n')
-                    fs.close()
-                pool.apply_async(func=crawl, args=(payload_publicate, pids, lock, cnt,))
-                cnt = cnt + 1
+                if database.isCrawled(payload_publicate) == 0:
+                    with lock:
+                        fs = open(logFile, "a+")
+                        for v, k in payload_publicate.items():
+                            fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
+                        fs.write('\n')
+                        fs.close()
+                    pool.apply_async(func=crawl, args=(payload_publicate, pids, lock, cnt,))
+                    cnt = cnt + 1
         pool.close()
         fs = open(logFile, "a+")
         fs.write('Pool has been closed.\n')
