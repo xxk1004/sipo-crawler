@@ -76,3 +76,9 @@ class Patent(Base):
     PCT_in_date = Column(String)
     PCT_applicate = Column(String)
     PCT_publicate = Column(String)
+
+class Page(Base):
+    __tablename__ = 'pages'
+    strWhere = Column(String, primary_key=True)
+    pageSize = Column(String, primary_key=True)
+    pageNow = Column(String, primary_key=True)

@@ -41,3 +41,21 @@ def countRecords(year):
         return "<@Error@>"
     finally:
         pass
+
+def addPageCrawled(payload_publicate):
+    try:
+        session = conn.Session()
+        page = conn.Page(strWhere=payload_publicate['strWhere'],
+                         pageSize=payload_publicate['pageSize'],
+                         pageNow=payload_publicate['pageNow'])
+        session.add(page)
+        # commit操作
+        session.commit()
+        session.close()
+    except Exception as e:
+        # 待指定error规则
+        print("Exception: " + repr(e))
+        session.rollback()
+        return "<@Error@>"
+    finally:
+        pass
