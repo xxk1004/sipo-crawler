@@ -18,10 +18,10 @@ logging.basicConfig()
 logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
 
 pymysql.install_as_MySQLdb()
-DBNAME = ''
-DBHOST = ''
-DBUSER = ''
-DBPWD = ''
+DBNAME = 'patent'
+DBHOST = '193.112.15.227'
+DBUSER = 'root'
+DBPWD = 'armsss'
 engine = create_engine('mysql://' + DBUSER + ':' + DBPWD + '@' + DBHOST + '/' + DBNAME + '?charset=utf8', encoding="utf8",
                        poolclass=QueuePool, pool_size=50, pool_recycle=60, echo=False)
 

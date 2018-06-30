@@ -94,6 +94,7 @@ def getUncrawledPageList(strWhere, pageSize, pageNowList):
         for item in pageNowList:
             if str(item) not in crawledPageList:
                 unCrawledPageList.append(str(item))
+        session.close()
         return unCrawledPageList
     except Exception as e:
         # 待指定error规则
