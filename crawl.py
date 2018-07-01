@@ -152,7 +152,7 @@ def parse(response, payload_publicate):
         # for v, k in item.items():
         #     print('{v}:{k}'.format(v=v, k=k))
         result = database.insertToDb(item)
-        database.addPageCrawled(payload_publicate)
+    database.addPageCrawled(payload_publicate)
         # if (result == "<@Error@>"):
         #     print("Database exception")
 
