@@ -102,3 +102,58 @@ def getUncrawledPageList(strWhere, pageSize, pageNowList):
         return "<@Error@>"
     finally:
         pass
+
+def addTrace(year, time, count):
+    try:
+        session = conn.Session()
+        trace = conn.Trace(year=year,
+                          time=time,
+                          count=count)
+        session.add(trace)
+        # commit操作
+        session.commit()
+        session.close()
+    except Exception as e:
+        # 待指定error规则
+        print("Exception: " + repr(e))
+        session.rollback()
+        return "<@Error@>"
+    finally:
+        pass
+
+def getMaxPages(strWhere, pageSize):
+    try:
+        session = conn.Session()
+        result = session.query(conn.MaxPages.maxPages).filter(conn.MaxPages.strWhere == strWhere).\
+            filter(conn.MaxPages.pageSize == pageSize).\
+            first()
+        session.close()
+        if result is not None:
+            return result[0]
+        else:
+            return result
+    except Exception as e:
+        # 待指定error规则
+        # print("Exception: " + repr(e))
+        session.rollback()
+        return "<@Error@>"
+    finally:
+        pass
+
+def addMaxPages(strWhere, pageSize, maxPages):
+    try:
+        session = conn.Session()
+        maxPages = conn.MaxPages(strWhere=strWhere,
+                                 pageSize=pageSize,
+                                 maxPages=maxPages)
+        session.add(maxPages)
+        # commit操作
+        session.commit()
+        session.close()
+    except Exception as e:
+        # 待指定error规则
+        # print("Exception: " + repr(e))
+        session.rollback()
+        return "<@Error@>"
+    finally:
+        pass

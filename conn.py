@@ -82,3 +82,15 @@ class Page(Base):
     strWhere = Column(String, primary_key=True)
     pageSize = Column(String, primary_key=True)
     pageNow = Column(String, primary_key=True)
+
+class Trace(Base):
+    __tablename__ = 'trace'
+    year = Column(String, primary_key=True)
+    time = Column(String, primary_key=True)
+    count = Column(String)
+
+class MaxPages(Base):
+    __tablename__ = 'max_pages'
+    strWhere = Column(String, primary_key=True)
+    pageSize = Column(String, primary_key=True)
+    maxPages = Column(Integer)

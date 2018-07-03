@@ -13,4 +13,7 @@ payload_publicate = {'showType': '1', 'strSources': 'pip', 'strWhere': r"OPD=BET
                      'pageNow': '1'}
 # database.addPageCrawled(payload_publicate)
 # print(str(database.isCrawled(payload_publicate)))
-print(database.getUncrawledPageList("OPD=BETWEEN['2013.04.11', '2013.04.20']", '20', range(1, 30)))
+# print(database.getUncrawledPageList("OPD=BETWEEN['2013.04.11', '2013.04.20']", '20', range(1, 30)))
+# database.addTrace('2015', '2018-07-02 16:05:40', '2')
+# print(str(database.getMaxPages("OPD=BETWEEN['2011.01.01', '2011.01.10']", '20')))
+database.addMaxPages("OPD=BETWEEN['2011.01.01', '2011.01.10']", '20', 1111)

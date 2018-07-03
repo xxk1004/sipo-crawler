@@ -71,6 +71,7 @@ while True:
     if result is None:
         print("Timeout occurred", flush=True)
     print("Current records number of " + year + ": " + str(database.countRecords(year)), flush=True)
+    database.addTrace(year, time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), str(database.countRecords(year)))
     endTime = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime())
     seconds = (datetime.datetime.strptime(endTime, "%Y-%m-%d_%H:%M:%S") - datetime.datetime.strptime(startTime,
                                                                                                      "%Y-%m-%d_%H:%M:%S")).seconds

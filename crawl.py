@@ -78,9 +78,9 @@ def get_response(payload_publicate, proxies, retries):
         elif retries > 0:
             retries = retries - 1
             time.sleep(10)
-            r = requests.get('http://127.0.0.1:8000/?types=0&count=40')
+            r = requests.get('http://127.0.0.1:8000/?types=0&count=60')
             ip_ports = json.loads(r.text)
-            index = random.choice(range(40))
+            index = random.choice(range(60))
             ip = ip_ports[index][0]
             port = ip_ports[index][1]
             proxies = {
@@ -171,9 +171,9 @@ def crawl(payload_publicate, pids, lock, cnt):
             fs.write('Invoked Engine.dispose()\n')
             fs.close()
     try:
-        r = requests.get('http://127.0.0.1:8000/?types=0&count=40')
+        r = requests.get('http://127.0.0.1:8000/?types=0&count=60')
         ip_ports = json.loads(r.text)
-        index = random.choice(range(40))
+        index = random.choice(range(60))
         ip = ip_ports[index][0]
         port = ip_ports[index][1]
         proxies = {
@@ -231,25 +231,30 @@ if __name__ == '__main__':
 
     maxPages = ["", "", ""]
     for i in range(3):
-        payload_publicate = {'showType': '1', 'strSources': 'pip', 'strWhere': r'OPD=' + opd[i], 'numSortMethod': '4',
-                             'numIp': '0',
-                             'numIpc': '0', 'pageSize': '20', 'pageNow': '1'}
-        r = requests.get('http://127.0.0.1:8000/?types=0&count=40')
-        ip_ports = json.loads(r.text)
-        index = random.choice(range(40))
-        ip = ip_ports[index][0]
-        port = ip_ports[index][1]
-        proxies = {
-            'http': 'http://%s:%s' % (ip, port),
-            'https': 'http://%s:%s' % (ip, port)
-        }
-        response = get_response(payload_publicate, proxies, 5)
-        if response == '<@Error@>':
-            fs = open(logFile, "a+")
-            fs.write('Exceed max retries when getting max page.\n')
-            fs.close()
-            sys.exit()
-        maxPages[i] = int(response.xpath("//div[@class='next']/a[last()-1]/text()")[0])
+        result = database.getMaxPages(r'OPD=' + opd[i], '20')
+        if result is not None:
+            maxPages[i] = result
+        else:
+            payload_publicate = {'showType': '1', 'strSources': 'pip', 'strWhere': r'OPD=' + opd[i], 'numSortMethod': '4',
+                                 'numIp': '0',
+                                 'numIpc': '0', 'pageSize': '20', 'pageNow': '1'}
+            r = requests.get('http://127.0.0.1:8000/?types=0&count=60')
+            ip_ports = json.loads(r.text)
+            index = random.choice(range(60))
+            ip = ip_ports[index][0]
+            port = ip_ports[index][1]
+            proxies = {
+                'http': 'http://%s:%s' % (ip, port),
+                'https': 'http://%s:%s' % (ip, port)
+            }
+            response = get_response(payload_publicate, proxies, 5)
+            if response == '<@Error@>':
+                fs = open(logFile, "a+")
+                fs.write('Exceed max retries when getting max page.\n')
+                fs.close()
+                sys.exit()
+            maxPages[i] = int(response.xpath("//div[@class='next']/a[last()-1]/text()")[0])
+            database.addMaxPages(r'OPD=' + opd[i], '20', maxPages[i])
         fs = open(logFile, "a+")
         fs.write(opd[i] + " maxPages: " + str(maxPages[i]) + '\n\n')
         fs.close()
