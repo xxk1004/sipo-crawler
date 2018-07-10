@@ -1,5 +1,6 @@
 import conn
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 def insertToDb(patent):
     try:
@@ -22,6 +23,11 @@ def insertToDb(patent):
         # commit操作
         session.commit()
         session.close()
+    except IntegrityError as e:
+        # 待指定error规则
+        print("Exception: " + repr(e))
+        session.rollback()
+        return "<@Integrity Error@>"
     except Exception as e:
         # 待指定error规则
         print("Exception: " + repr(e))

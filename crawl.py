@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import signal
+import subprocess
 import sys
 import json
 import queue
@@ -6,6 +8,7 @@ import threading
 import time
 import traceback
 
+import psutil
 import requests
 from lxml import etree
 import database
@@ -18,6 +21,20 @@ from multiprocessing import Process, Pool, Lock, Manager
 
 
 # %%
+def get_process_id(name):
+    """Return process ids found by (partial) name or regex.
+
+	>>> get_process_id('kthreadd')
+	[2]
+	>>> get_process_id('watchdog')
+	[10, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56, 61]  # ymmv
+	>>> get_process_id('non-existent process')
+	[]
+	"""
+    child = subprocess.Popen(['pgrep', '-f', name], stdout=subprocess.PIPE, shell=False)
+    response = child.communicate()[0]
+    return [int(pid) for pid in response.split()]
+
 def get_response(payload_publicate, proxies, retries):
     url = 'http://epub.sipo.gov.cn/patentoutline.action'
     #    payload_publicate = {'showType': '1', 'strSources': 'pip', 'strWhere': r'OPD=2012.01.18',
@@ -78,9 +95,9 @@ def get_response(payload_publicate, proxies, retries):
         elif retries > 0:
             retries = retries - 1
             time.sleep(10)
-            r = requests.get('http://127.0.0.1:8000/?types=0&count=60')
+            r = requests.get('http://127.0.0.1:8000/?types=0&count=70')
             ip_ports = json.loads(r.text)
-            index = random.choice(range(60))
+            index = random.choice(range(70))
             ip = ip_ports[index][0]
             port = ip_ports[index][1]
             proxies = {
@@ -110,6 +127,7 @@ def parse(response, payload_publicate):
     # print("crawling page ", self.pageNow) response里不可能得到当前页码
     # print("start_parse")
     cp_linrs = response.xpath("//div[@class='main']//div[@class='cp_box']//div[@class='cp_linr']")
+    flag = 1
     for cp_linr in cp_linrs:
         # item['title'] = cp_linr.xpath("./h1/text()").extract()[0]
         # extract出来是一个list
@@ -152,7 +170,10 @@ def parse(response, payload_publicate):
         # for v, k in item.items():
         #     print('{v}:{k}'.format(v=v, k=k))
         result = database.insertToDb(item)
-    database.addPageCrawled(payload_publicate)
+        if (result == "<@Error@>"):
+            flag = 0
+    if flag == 1:
+        database.addPageCrawled(payload_publicate)
         # if (result == "<@Error@>"):
         #     print("Database exception")
 
@@ -171,28 +192,39 @@ def crawl(payload_publicate, pids, lock, cnt):
             fs.write('Invoked Engine.dispose()\n')
             fs.close()
     try:
-        r = requests.get('http://127.0.0.1:8000/?types=0&count=60')
-        ip_ports = json.loads(r.text)
-        index = random.choice(range(60))
-        ip = ip_ports[index][0]
-        port = ip_ports[index][1]
-        proxies = {
-            'http': 'http://%s:%s' % (ip, port),
-            'https': 'http://%s:%s' % (ip, port)
-        }
-        # with lock:
-        #     fs = open(logFile, "a+")
-        #     fs.write("cnt: " + str(cnt) + '\n')
-        #     fs.write("pid: " + str(pid) + '\n')
-        #     for v, k in proxies.items():
-        #         fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
-        #     for v, k in payload_publicate.items():
-        #         fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
-        #     fs.write('\n')
-        #     fs.close()
-        response = get_response(payload_publicate, proxies, 5)
-        if response != '<@Error@>':
-            parse(response, payload_publicate)
+        r = requests.get('http://127.0.0.1:8000/?types=0&count=70')
+        if r.status_code != 200:
+            for pid in get_process_id('IPProxy'):
+                try:
+                    p = psutil.Process(pid)
+                    os.kill(pid, signal.SIGKILL)
+                except psutil.NoSuchProcess:
+                    print("no process found with pid=" + str(pid), flush=True)
+            command = "nohup python3 -u /home/IPProxyPool-master/IPProxy.py >> /home/IPProxyPool-master/IPProxy.log 2>&1 &"
+            cmd = command.split(" ")
+            subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        else:
+            ip_ports = json.loads(r.text)
+            index = random.choice(range(70))
+            ip = ip_ports[index][0]
+            port = ip_ports[index][1]
+            proxies = {
+                'http': 'http://%s:%s' % (ip, port),
+                'https': 'http://%s:%s' % (ip, port)
+            }
+            # with lock:
+            #     fs = open(logFile, "a+")
+            #     fs.write("cnt: " + str(cnt) + '\n')
+            #     fs.write("pid: " + str(pid) + '\n')
+            #     for v, k in proxies.items():
+            #         fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
+            #     for v, k in payload_publicate.items():
+            #         fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
+            #     fs.write('\n')
+            #     fs.close()
+            response = get_response(payload_publicate, proxies, 5)
+            if response != '<@Error@>':
+                parse(response, payload_publicate)
     except:
         with lock:
             fs = open(logFile, "a+")
@@ -238,9 +270,9 @@ if __name__ == '__main__':
             payload_publicate = {'showType': '1', 'strSources': 'pip', 'strWhere': r'OPD=' + opd[i], 'numSortMethod': '4',
                                  'numIp': '0',
                                  'numIpc': '0', 'pageSize': '20', 'pageNow': '1'}
-            r = requests.get('http://127.0.0.1:8000/?types=0&count=60')
+            r = requests.get('http://127.0.0.1:8000/?types=0&count=70')
             ip_ports = json.loads(r.text)
-            index = random.choice(range(60))
+            index = random.choice(range(70))
             ip = ip_ports[index][0]
             port = ip_ports[index][1]
             proxies = {
