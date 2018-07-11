@@ -35,7 +35,7 @@ def get_process_id(name):
     response = child.communicate()[0]
     return [int(pid) for pid in response.split()]
 
-def get_response(payload_publicate, proxies, retries):
+def get_response(payload_publicate, ip_ports, proxies, retries):
     url = 'http://epub.sipo.gov.cn/patentoutline.action'
     #    payload_publicate = {'showType': '1', 'strSources': 'pip', 'strWhere': r'OPD=2012.01.18',
     #                         'numSortMethod': '4', 'numIp': '0', 'numIpc': '0', 'pageSize': '20', 'pageNow':'1'}
@@ -95,8 +95,6 @@ def get_response(payload_publicate, proxies, retries):
         elif retries > 0:
             retries = retries - 1
             time.sleep(10)
-            r = requests.get('http://127.0.0.1:8000/?types=0&count=70')
-            ip_ports = json.loads(r.text)
             index = random.choice(range(70))
             ip = ip_ports[index][0]
             port = ip_ports[index][1]
@@ -104,21 +102,21 @@ def get_response(payload_publicate, proxies, retries):
                 'http': 'http://%s:%s' % (ip, port),
                 'https': 'http://%s:%s' % (ip, port)
             }
-            return get_response(payload_publicate, proxies, retries)
+            return get_response(payload_publicate, ip_ports, proxies, retries)
         else:
             return '<@Error@>'
     except TimeoutError:
         print(u'请求超时，正在重试...')
         if retries > 0:
             retries = retries - 1
-            return get_response(payload_publicate, proxies, retries)
+            return get_response(payload_publicate, ip_ports, proxies, retries)
         else:
             return '<@Error@>'
     except ConnectionError:
         print(u'网络连接失败，正在重试...')
         if retries > 0:
             retries = retries - 1
-            return get_response(payload_publicate, proxies, retries)
+            return get_response(payload_publicate, ip_ports, proxies, retries)
         else:
             return '<@Error@>'
 
@@ -182,7 +180,7 @@ def parse(response, payload_publicate):
 POLLING_NUM = 8
 
 
-def crawl(payload_publicate, pids, lock, cnt):
+def crawl(payload_publicate, pids, lock, cnt, ip_ports):
     pid = os.getpid()
     with lock:
         if pid not in pids:
@@ -192,39 +190,26 @@ def crawl(payload_publicate, pids, lock, cnt):
             fs.write('Invoked Engine.dispose()\n')
             fs.close()
     try:
-        r = requests.get('http://127.0.0.1:8000/?types=0&count=70')
-        if r.status_code != 200:
-            for pid in get_process_id('IPProxy'):
-                try:
-                    p = psutil.Process(pid)
-                    os.kill(pid, signal.SIGKILL)
-                except psutil.NoSuchProcess:
-                    print("no process found with pid=" + str(pid), flush=True)
-            command = "nohup python3 -u /home/IPProxyPool-master/IPProxy.py >> /home/IPProxyPool-master/IPProxy.log 2>&1 &"
-            cmd = command.split(" ")
-            subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        else:
-            ip_ports = json.loads(r.text)
-            index = random.choice(range(70))
-            ip = ip_ports[index][0]
-            port = ip_ports[index][1]
-            proxies = {
-                'http': 'http://%s:%s' % (ip, port),
-                'https': 'http://%s:%s' % (ip, port)
-            }
-            # with lock:
-            #     fs = open(logFile, "a+")
-            #     fs.write("cnt: " + str(cnt) + '\n')
-            #     fs.write("pid: " + str(pid) + '\n')
-            #     for v, k in proxies.items():
-            #         fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
-            #     for v, k in payload_publicate.items():
-            #         fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
-            #     fs.write('\n')
-            #     fs.close()
-            response = get_response(payload_publicate, proxies, 5)
-            if response != '<@Error@>':
-                parse(response, payload_publicate)
+        index = random.choice(range(70))
+        ip = ip_ports[index][0]
+        port = ip_ports[index][1]
+        proxies = {
+            'http': 'http://%s:%s' % (ip, port),
+            'https': 'http://%s:%s' % (ip, port)
+        }
+        # with lock:
+        #     fs = open(logFile, "a+")
+        #     fs.write("cnt: " + str(cnt) + '\n')
+        #     fs.write("pid: " + str(pid) + '\n')
+        #     for v, k in proxies.items():
+        #         fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
+        #     for v, k in payload_publicate.items():
+        #         fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
+        #     fs.write('\n')
+        #     fs.close()
+        response = get_response(payload_publicate, ip_ports, proxies, 5)
+        if response != '<@Error@>':
+            parse(response, payload_publicate)
     except:
         with lock:
             fs = open(logFile, "a+")
@@ -279,7 +264,7 @@ if __name__ == '__main__':
                 'http': 'http://%s:%s' % (ip, port),
                 'https': 'http://%s:%s' % (ip, port)
             }
-            response = get_response(payload_publicate, proxies, 5)
+            response = get_response(payload_publicate, ip_ports, proxies, 5)
             if response == '<@Error@>':
                 fs = open(logFile, "a+")
                 fs.write('Exceed max retries when getting max page.\n')
@@ -305,6 +290,9 @@ if __name__ == '__main__':
     elif order == 5:
         l1 = [0, 1, 2]
 
+    r = requests.get('http://127.0.0.1:8000/?types=0&count=70')
+    ip_ports = json.loads(r.text)
+
     with Manager() as manager:
         pool = Pool(POLLING_NUM)
         cnt = 0
@@ -326,7 +314,7 @@ if __name__ == '__main__':
                         fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
                     fs.write('\n')
                     fs.close()
-                pool.apply_async(func=crawl, args=(payload_publicate, pids, lock, cnt,))
+                pool.apply_async(func=crawl, args=(payload_publicate, pids, lock, cnt, ip_ports,))
                 cnt = cnt + 1
         pool.close()
         fs = open(logFile, "a+")
