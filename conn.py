@@ -79,6 +79,7 @@ class Patent(Base):
 
 class Page(Base):
     __tablename__ = 'pages'
+    strSources = Column(String, primary_key=True)
     strWhere = Column(String, primary_key=True)
     pageSize = Column(String, primary_key=True)
     pageNow = Column(String, primary_key=True)
@@ -91,6 +92,7 @@ class Trace(Base):
 
 class MaxPages(Base):
     __tablename__ = 'max_pages'
+    strSources = Column(String, primary_key=True)
     strWhere = Column(String, primary_key=True)
     pageSize = Column(String, primary_key=True)
     maxPages = Column(Integer)

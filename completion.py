@@ -1,39 +1,26 @@
-# -*- coding: utf-8 -*-
-import signal
-import subprocess
-import sys
 import json
-import queue
-import threading
+import os
+import random
 import time
 import traceback
-
-import psutil
-import requests
 from lxml import etree
-import database
-import os
+import requests
 import conn
-import random
-# import pandas as pd
-from requests.exceptions import ConnectionError  # 请求异常
+import database
+import sys
 from multiprocessing import Process, Pool, Lock, Manager
 
+POLLING_NUM = 50
 
-# %%
-def get_process_id(name):
-    """Return process ids found by (partial) name or regex.
-
-	>>> get_process_id('kthreadd')
-	[2]
-	>>> get_process_id('watchdog')
-	[10, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56, 61]  # ymmv
-	>>> get_process_id('non-existent process')
-	[]
-	"""
-    child = subprocess.Popen(['pgrep', '-f', name], stdout=subprocess.PIPE, shell=False)
-    response = child.communicate()[0]
-    return [int(pid) for pid in response.split()]
+TOTAL_RECORD_DICT = {
+    '2017': 1270363,
+    '2016': 1045720,
+    '2015': 955350,
+    '2014': 777340,
+    '2013': 632590,
+    '2012': 543300,
+    '2011': 368440
+}
 
 def get_response(payload_publicate, ip_ports, proxies, retries):
     url = 'http://epub.sipo.gov.cn/patentoutline.action'
@@ -88,7 +75,7 @@ def get_response(payload_publicate, ip_ports, proxies, retries):
         'Host': 'epub.sipo.gov.cn'
     }
     try:
-        if retries == 3:
+        if retries == 5:
             response = requests.post(url, data=payload_publicate, headers=headers, timeout=60)
         else:
             response = requests.post(url, data=payload_publicate, headers=headers, timeout=60, proxies=proxies)
@@ -123,7 +110,7 @@ def get_response(payload_publicate, ip_ports, proxies, retries):
         else:
             return '<@Error@>'
     except Exception as e:
-        print('Exception: ' + traceback.format_exc())
+        print(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + " " + " occured exception:" + traceback.format_exc())
         if retries > 0:
             retries = retries - 1
             return get_response(payload_publicate, ip_ports, proxies, retries)
@@ -180,14 +167,13 @@ def parse(response, payload_publicate):
         result = database.insertToDb(item)
         if (result == "<@Error@>"):
             flag = 0
-    if flag == 1:
-        database.addPageCrawled(payload_publicate)
+    # if flag == 1:
+    #     database.addPageCrawled(payload_publicate)
         # if (result == "<@Error@>"):
         #     print("Database exception")
 
 
 # %%
-POLLING_NUM = 50
 
 
 def crawl(payload_publicate, pids, lock, cnt, ip_ports):
@@ -217,7 +203,7 @@ def crawl(payload_publicate, pids, lock, cnt, ip_ports):
         #         fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
         #     fs.write('\n')
         #     fs.close()
-        response = get_response(payload_publicate, ip_ports, proxies, 3)
+        response = get_response(payload_publicate, ip_ports, proxies, 5)
         if response != '<@Error@>':
             parse(response, payload_publicate)
     except:
@@ -230,99 +216,30 @@ def crawl(payload_publicate, pids, lock, cnt, ip_ports):
 
     time.sleep(5)
 
-
 if __name__ == '__main__':
-    # %%
     currentPath = os.path.split(os.path.realpath(__file__))[0]
-    if not os.path.exists(currentPath + "/log/crawl/"):
-        os.makedirs(currentPath + "/log/crawl/")
-    year_month = sys.argv[1]
-    logFile = currentPath + "/log/crawl/" + sys.argv[2]
-    strSources = sys.argv[4]
-
-    opd = ["", "", ""]
-    opd[0] = "BETWEEN['" + year_month + ".01', '" + year_month + ".10']"
-    opd[1] = "BETWEEN['" + year_month + ".11', '" + year_month + ".20']"
-    big = ['01', '03', '05', '07', '08', '10', '12']
-    small = ['04', '06', '09', '11']
-    if year_month[-2:] in big:
-        opd[2] = "BETWEEN['" + year_month + ".21', '" + year_month + ".31']"
-    elif year_month[-2:] in small:
-        opd[2] = "BETWEEN['" + year_month + ".21', '" + year_month + ".30']"
-    else:
-        if (int(year_month[0:4]) % 4 == 0) & (int(year_month[0:4]) % 100 != 0):
-            opd[2] = "BETWEEN['" + year_month + ".21', '" + year_month + ".29']"
-        elif int(year_month[0:4]) % 400 == 0:
-            opd[2] = "BETWEEN['" + year_month + ".21', '" + year_month + ".29']"
-        else:
-            opd[2] = "BETWEEN['" + year_month + ".21', '" + year_month + ".28']"
-
-    maxPages = ["", "", ""]
-    for i in range(3):
-        result = database.getMaxPages(strSources, r'OPD=' + opd[i], '20')
-        if result is not None:
-            maxPages[i] = result
-        else:
-            payload_publicate = {'showType': '1', 'strSources': 'pip', 'strWhere': r'OPD=' + opd[i], 'numSortMethod': '4',
-                                 'numIp': '0',
-                                 'numIpc': '0', 'pageSize': '20', 'pageNow': '1'}
-            r = requests.get('http://127.0.0.1:8000/?types=0&count=70')
-            ip_ports = json.loads(r.text)
-            index = random.choice(range(70))
-            ip = ip_ports[index][0]
-            port = ip_ports[index][1]
-            proxies = {
-                'http': 'http://%s:%s' % (ip, port),
-                'https': 'http://%s:%s' % (ip, port)
-            }
-            response = get_response(payload_publicate, ip_ports, proxies, 3)
-            if response == '<@Error@>':
-                fs = open(logFile, "a+")
-                fs.write('Exceed max retries when getting max page.\n')
-                fs.close()
-                sys.exit()
-            maxPages[i] = int(response.xpath("//div[@class='next']/a[last()-1]/text()")[0])
-            database.addMaxPages(strSources, r'OPD=' + opd[i], '20', maxPages[i])
-        fs = open(logFile, "a+")
-        fs.write(opd[i] + " maxPages: " + str(maxPages[i]) + '\n\n')
-        fs.close()
-
-    order = int(sys.argv[3]) % 6
-    if order == 0:
-        l1 = [1, 2, 0]
-    elif order == 1:
-        l1 = [1, 0, 2]
-    elif order == 2:
-        l1 = [2, 1, 0]
-    elif order == 3:
-        l1 = [2, 0, 1]
-    elif order == 4:
-        l1 = [0, 2, 1]
-    elif order == 5:
-        l1 = [0, 1, 2]
-
-    r = requests.get('http://127.0.0.1:8000/?types=0&count=70')
-    ip_ports = json.loads(r.text)
+    if not os.path.exists(currentPath + "/log/completion/"):
+        os.makedirs(currentPath + "/log/completion/")
+    year = sys.argv[1]
+    logFile = currentPath + "/log/completion/" + sys.argv[1] + ".log"
+    total_record = TOTAL_RECORD_DICT[year]
 
     with Manager() as manager:
         pool = Pool(POLLING_NUM)
         cnt = 0
         pids = manager.list()
         lock = manager.Lock()
-        for i in l1:
-            if (int(sys.argv[3]) // 6) % 2 == 0:
-                l2 = range(1, maxPages[i] + 1)
-            else:
-                l2 = reversed(range(1, maxPages[i] + 1))
-            uncrawledPageList = database.getUncrawledPageList(strSources, r'OPD=' + opd[i], '20', l2)
-            for page in uncrawledPageList:
-                payload_publicate = {'showType': '1', 'strSources': 'pip', 'strWhere': r'OPD=' + opd[i],
-                                     'numSortMethod': '4', 'numIp': '0', 'numIpc': '0', 'pageSize': '20',
-                                     'pageNow': str(page)}
+        for start in range(int(total_record / 10000) + 1):
+            r = requests.get('http://127.0.0.1:8000/?types=0&count=70')
+            ip_ports = json.loads(r.text)
+            uncrawledPublicateNumberList = database.getUncrawledPublicateNumber(year, start * 10000, 10000)
+            for uncrawledPublicateNumber in uncrawledPublicateNumberList:
+                payload_publicate = {'showType': '1', 'strSources': '', 'strWhere': r'PN=' + uncrawledPublicateNumber,
+                                     'numSortMethod': '', 'numIp': '', 'numIpc': '', 'pageSize': '3',
+                                     'pageNow': '1'}
                 with lock:
                     fs = open(logFile, "a+")
-                    for v, k in payload_publicate.items():
-                        fs.write('{v}:{k}'.format(v=v, k=k) + '\n')
+                    fs.write(payload_publicate['strWhere'] + '\n')
                     fs.write('\n')
                     fs.close()
                 pool.apply_async(func=crawl, args=(payload_publicate, pids, lock, cnt, ip_ports,))
@@ -334,4 +251,3 @@ if __name__ == '__main__':
         pool.join()
         for worker in pool._pool:
             assert not worker.is_alive()
-    # %%

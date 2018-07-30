@@ -34,7 +34,10 @@ def TIMEOUT_COMMAND(command, timeout):
                 try:
                     p = psutil.Process(pid)
                     if p.ppid() == process.pid:
-                        os.kill(pid, signal.SIGKILL)
+                        try:
+                            os.kill(pid, signal.SIGKILL)
+                        except Exception as e:
+                            print("Exception: " + repr(e), flush=True)
                 except psutil.NoSuchProcess:
                     print("no process found with pid=" + str(pid), flush=True)
             os.kill(process.pid, signal.SIGKILL)
@@ -48,6 +51,7 @@ while True:
     timeout = 900
     count = count + 1
     year = sys.argv[1]
+    strSources = sys.argv[2]
     month = count % 12
     order = count // 12
     if month == 0:
@@ -66,12 +70,13 @@ while True:
         count_str = str(count) + 'th'
     startTime = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime())
     print(startTime + ", start " + count_str + " crawling, date: " + str(year) + '.' + month_str, flush=True)
-    print("Current records number of " + year + ": " + str(database.countRecords(year)), flush=True)
-    result = TIMEOUT_COMMAND('python3 crawl.py ' + str(year) + '.' + month_str+' '+startTime+'.log ' + str(order), timeout)
+    # print("Current records number of " + year + ": " + str(database.countRecords(year)), flush=True)
+    result = TIMEOUT_COMMAND('python3 crawl.py ' + str(year) + '.' + month_str + ' '+startTime+'.log ' + str(order) + ' ' + strSources, timeout)
     if result is None:
         print("Timeout occurred", flush=True)
-    print("Current records number of " + year + ": " + str(database.countRecords(year)), flush=True)
-    database.addTrace(year, time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), str(database.countRecords(year)))
+    records = str(database.countRecords(year))
+    print("Current records number of " + year + ": " + records, flush=True)
+    database.addTrace(year, time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), records)
     endTime = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime())
     seconds = (datetime.datetime.strptime(endTime, "%Y-%m-%d_%H:%M:%S") - datetime.datetime.strptime(startTime,
                                                                                                      "%Y-%m-%d_%H:%M:%S")).seconds
